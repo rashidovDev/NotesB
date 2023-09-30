@@ -4,6 +4,7 @@ const bcrypt = require("bcryptjs")
 const {check, validationResult} = require("express-validator")
 const config = require("config")
 const jwt = require("jsonwebtoken")
+const authMiddleware = require("../middleware/auth.middleware")
 const router = new Router()
 
 router.post('/registration',    
@@ -38,29 +39,58 @@ router.post('/registration',
 
 router.post('/login', async (req, res) => {
 
-     const {email, password} = req.body;
-     const user = await User.findOne({email})
-
-     if(!user){
-        res.status(400).json({message : `User with this email :'${email}' not found`})
-     }
-
-     const isPassValid =  bcrypt.compareSync(password, user.password)
-     if(!isPassValid) {
-        res.status(404).json({message : "Invalid password"})
-     }
-
-     const token = jwt.sign({ id : user.id}, config.get("secretKey"), {expiresIn : "1h"})
-     return res.json({
-        token, 
-        user : {
-            id : user.id,
-            email, 
-            diskSpace : user.diskSpace,
-            usedSpace : user.usedSpace,
-            avatar : user.avatar    
+    try{
+        const {email, password} = req.body;
+        const user = await User.findOne({email})
+   
+        if(!user){
+           res.status(400).json({message : `User with this email :'${email}' not found`})
         }
-     })
+   
+        const isPassValid =  bcrypt.compareSync(password, user.password)
+        if(!isPassValid) {
+           res.status(404).json({message : "Invalid password"})
+        }
+   
+        const token = jwt.sign({ id : user.id}, config.get("secretKey"), {expiresIn : "1h"})
+        return res.json({
+           token, 
+           user : {
+               id : user.id,
+               email, 
+               diskSpace : user.diskSpace,
+               usedSpace : user.usedSpace,
+               avatar : user.avatar    
+           }
+        })
+    }catch(e){
+     console.log(e)
+     res.send({message : "Server Error"})
+    }
+
+    
+})
+
+router.get('/auth', authMiddleware,
+ async (req, res) => {
+    try{
+    const user = await User.findOne({_id : req.user.id})
+    const token = jwt.sign({ id : user.id}, config.get("secretKey"), {expiresIn : "1h"})
+    return res.json({
+       token, 
+       user : {
+           id : user.id,
+           email, 
+           diskSpace : user.diskSpace,
+           usedSpace : user.usedSpace,
+           avatar : user.avatar    
+       }
+    })
+     
+     }catch(e){
+        console.log(e)
+        res.send({message : "Server error"})
+     }
 })
 
 module.exports = router
